@@ -1,0 +1,12 @@
+formats:
+  netcdf:
+    extensions: [".nc", ".netcdf", ".cdf"]
+  grib:
+    extensions: [".grib", ".grb", ".grib2", ".grb2"]
+  grd:
+    extensions: [".grd"]
+
+coordinates:
+  latitude_aliases: ["lat", "latitude", "y", "nav_lat"]
+  longitude_aliases: ["lon", "longitude", "x", "nav_lon"]
+  time_aliases: ["time", "valid_time", "forecast_time"]

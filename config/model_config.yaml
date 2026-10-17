@@ -1,0 +1,6 @@
+forecasting:
+  phase: 1
+  supported_models:
+    - Linear Regression
+    - Moving Average
+  spatial_reduction: regional_mean

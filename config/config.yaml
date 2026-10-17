@@ -1,0 +1,12 @@
+project:
+  name: weather_forecasting_system
+  version: "2.1"
+  default_projection: Auto
+
+paths:
+  raw_data: data/raw
+  interim_data: data/interim
+  processed_data: data/processed
+  external_data: data/external
+  reports: reports
+  experiment_logs: experiments/experiment_logs

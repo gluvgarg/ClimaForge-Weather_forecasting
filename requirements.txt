@@ -1,0 +1,17 @@
+xarray
+netCDF4
+cfgrib
+pandas
+numpy
+matplotlib
+cartopy
+geopandas
+PyQt5
+seaborn
+scipy
+statsmodels
+scikit-learn
+xgboost
+lightgbm
+torch
+pyarrow==21.0.0

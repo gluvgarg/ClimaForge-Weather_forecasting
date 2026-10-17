@@ -1,0 +1,12 @@
+defaults:
+  window_size: 3
+  horizon: 1
+  future_steps: 3
+  train_ratio: 0.8
+
+variables:
+  - temperature
+  - wind_speed
+  - pressure
+  - humidity
+  - precipitation

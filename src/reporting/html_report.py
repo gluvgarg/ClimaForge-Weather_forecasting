@@ -1,0 +1,3 @@
+"""
+HTML report generation module.
+"""
