@@ -26,13 +26,13 @@ class PreprocessingPipeline:
 
         self.logger = get_logger(__name__)
         self.stages = [
-            ("Missing Values", MissingValueHandler()),
             ("Timestamp Validation", TimestampValidator()),
             ("Duplicate Removal", DuplicateHandler()),
-            ("Variable Standardization", VariableStandardizer()),
             ("Spatial/Temporal Alignment", SpatialTemporalAligner()),
-            ("Quality Validation", QualityValidator()),
+            ("Missing Values", MissingValueHandler()),
+            ("Variable Standardization", VariableStandardizer()),
             ("Outlier Detection", OutlierHandler()),
+            ("Quality Validation", QualityValidator()),
         ]
 
     def run(self, dataset):

@@ -16,6 +16,7 @@ class PreprocessingExporter:
         dataset,
         report,
         dataset_name,
+        export_csv=False,
     ):
 
         dataset_name = Path(dataset_name).stem
@@ -31,13 +32,16 @@ class PreprocessingExporter:
         )
 
         # ---------------------------------------
-        # Save Clean Dataset (CSV)
+        # Save Clean Dataset (CSV) if requested
         # ---------------------------------------
 
-        dataset.to_dataframe().reset_index().to_csv(
-            csv_path,
-            index=False,
-        )
+        if export_csv:
+            dataset.to_dataframe().reset_index().to_csv(
+                csv_path,
+                index=False,
+            )
+        else:
+            csv_path = None
 
         # ---------------------------------------
         # Save Preprocessing Report

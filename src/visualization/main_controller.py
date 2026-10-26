@@ -119,6 +119,11 @@ class MainController:
         self.metadata = self.metadata_extractor.extract(dataset)
         self.view.set_metadata(self.metadata)
         self.view.set_dataset_summary(self.dataset_manager.get_dataset_info())
+        self.view.set_analysis_reports(
+        self.dataset_manager.get_analysis_report(),
+        self.dataset_manager.get_preprocessing_report(),
+        self.dataset_manager.get_dataset_info(),
+)
         self.view.set_time_labels(self.dataset_view_builder.time_labels(dataset))
         self.view.set_weather_layers(self.dataset_view_builder.weather_layer_options(dataset))
         self.view.set_variables(self.dataset_manager.get_variable_names())

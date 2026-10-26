@@ -33,6 +33,7 @@ class DatasetManager:
         self.feature_report = {}
         self.processed_directory = None
         self.processed_dataset_key = None
+        self.source_paths = []
         self.loaders = {
             "netcdf": NetCDFLoader(),
             "grib": GRIBLoader(),
@@ -163,39 +164,54 @@ class DatasetManager:
             dataset=dataset,
             report=preprocessing_report,
             dataset_name=dataset_key,
+            export_csv=False,
         )
 
         # -------------------------------
-        # Feature Engineering (cache-checked)
+        # Feature Engineering Setup (On-demand)
         # -------------------------------
 
         processed_directory = self.processed_cache.resolve_directory(dataset_key)
+        self.processed_directory = processed_directory
+        self.processed_dataset_key = dataset_key
+        self.source_paths = source_paths
+        self.dataset = dataset
+
         signature = self.processed_cache.signature(dataset_key, source_paths)
+        if self.processed_cache.is_valid(processed_directory, signature):
+            progress("Valid cached features available for forecasting.")
+            self.logger.info("Cached features available: %s", processed_directory)
+        else:
+            self.logger.info("Features will be generated on-demand when required by forecasting.")
+
+        return dataset
+
+    def ensure_features(self, progress_callback=None):
+        """Ensure feature-engineered tabular files exist in processed_directory,
+        either by reusing valid cached files or running FeaturePipeline on demand.
+        """
+        if self.dataset is None:
+            raise ValueError("No dataset loaded.")
+        progress = progress_callback or (lambda message: None)
+        processed_directory = self.processed_cache.resolve_directory(self.processed_dataset_key)
+        signature = self.processed_cache.signature(self.processed_dataset_key, self.source_paths)
 
         if self.processed_cache.is_valid(processed_directory, signature):
             progress("Reusing cached feature-engineered outputs...")
-            self.logger.info(
-                "Reusing cached feature-engineered outputs: %s",
-                processed_directory,
-            )
-        else:
-            progress("Engineering features...")
-            self.logger.info(
-                "Running feature engineering: %s",
-                processed_directory,
-            )
-            _, feature_report = self.feature_pipeline.run(
-                dataset,
-                output_dir=processed_directory,
-            )
-            self.feature_report = feature_report.to_dict()
-            self.processed_cache.write_manifest(processed_directory, signature, source_paths)
+            self.logger.info("Reusing cached feature-engineered outputs: %s", processed_directory)
+            self.processed_directory = processed_directory
+            return processed_directory
 
+        progress("Engineering features...")
+        self.logger.info("Running feature engineering: %s", processed_directory)
+        _, feature_report = self.feature_pipeline.run(
+            self.dataset,
+            output_dir=processed_directory,
+        )
+        self.feature_report = feature_report.to_dict()
+        self.processed_cache.write_manifest(processed_directory, signature, self.source_paths)
         self.processed_directory = processed_directory
-        self.processed_dataset_key = dataset_key
-        self.dataset = dataset
-
-        return dataset
+        return processed_directory
 
     def close_dataset(self):
         """Release the active xarray dataset and reset file state."""
@@ -209,6 +225,7 @@ class DatasetManager:
         self.feature_report = {}
         self.processed_directory = None
         self.processed_dataset_key = None
+        self.source_paths = []
 
     def get_dataset(self):
         return self.dataset
@@ -317,6 +334,8 @@ class DatasetManager:
             "attributes": dict(self.dataset.attrs),
             "validation": self.validation_report,
             "preprocessing": self.preprocessing_report,
+            "analysis": self.analysis_report,
+            "pipeline_errors": self.preprocessing_report.get("pipeline_errors", {}),
         }
 
     def get_validation_report(self):

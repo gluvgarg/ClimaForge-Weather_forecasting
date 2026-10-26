@@ -43,9 +43,12 @@ class RollingFeatureGenerator:
 
         generated = []
 
-        for variable_name, variable in featured.data_vars.items():
+        for variable_name, variable in list(featured.data_vars.items()):
 
             if variable_name in self.EXCLUDED_VARIABLES:
+                continue
+
+            if variable_name.endswith(("_roll_mean", "_roll_std", "_roll_min", "_roll_max")):
                 continue
 
             if not np.issubdtype(variable.dtype, np.number):

@@ -42,7 +42,7 @@ class LagFeatureGenerator:
 
         generated = []
 
-        for variable_name, variable in featured.data_vars.items():
+        for variable_name, variable in list(featured.data_vars.items()):
 
             if variable_name in self.EXCLUDED_VARIABLES:
                 continue

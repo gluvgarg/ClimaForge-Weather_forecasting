@@ -124,30 +124,49 @@ class FeaturePipeline:
         # ----------------------------------------
 
         if self.TARGET in df.columns:
-
-            X = df.drop(
-                columns=[self.TARGET]
-            )
-
-            y = df[[self.TARGET]]
-
             total = len(df)
+            time_cols = [c for c in df.columns if c.lower() in {"time", "valid_time", "forecast_time"}]
+            time_col = time_cols[0] if time_cols else None
 
-            train_end = int(total * 0.70)
+            if time_col is not None and df[time_col].nunique() >= 3:
+                unique_times = pd.Series(df[time_col].unique()).sort_values().values
+                n_times = len(unique_times)
+                t_train_end = max(1, min(int(n_times * 0.70), n_times - 2))
+                t_val_end = max(t_train_end + 1, min(int(n_times * 0.85), n_times - 1))
 
-            val_end = int(total * 0.85)
+                train_times = set(unique_times[:t_train_end])
+                val_times = set(unique_times[t_train_end:t_val_end])
+                test_times = set(unique_times[t_val_end:])
 
-            X_train = X.iloc[:train_end]
+                train_df = df[df[time_col].isin(train_times)]
+                val_df = df[df[time_col].isin(val_times)]
+                test_df = df[df[time_col].isin(test_times)]
 
-            X_val = X.iloc[train_end:val_end]
+                X_train = train_df.drop(columns=[self.TARGET])
+                y_train = train_df[[self.TARGET]]
+                X_val = val_df.drop(columns=[self.TARGET])
+                y_val = val_df[[self.TARGET]]
+                X_test = test_df.drop(columns=[self.TARGET])
+                y_test = test_df[[self.TARGET]]
 
-            X_test = X.iloc[val_end:]
+                split_strategy = "chronological_time"
+            else:
+                total = len(df)
+                train_end = int(total * 0.70)
+                val_end = int(total * 0.85)
 
-            y_train = y.iloc[:train_end]
+                X = df.drop(columns=[self.TARGET])
+                y = df[[self.TARGET]]
 
-            y_val = y.iloc[train_end:val_end]
+                X_train = X.iloc[:train_end]
+                X_val = X.iloc[train_end:val_end]
+                X_test = X.iloc[val_end:]
 
-            y_test = y.iloc[val_end:]
+                y_train = y.iloc[:train_end]
+                y_val = y.iloc[train_end:val_end]
+                y_test = y.iloc[val_end:]
+
+                split_strategy = "sequential_rows"
 
             X_train.to_csv(
                 output_dir / "X_train.csv",
@@ -181,6 +200,12 @@ class FeaturePipeline:
 
             report.add(
                 "dataset_split",
+                "split_strategy",
+                split_strategy,
+            )
+
+            report.add(
+                "dataset_split",
                 "total_rows",
                 total,
             )
@@ -206,7 +231,7 @@ class FeaturePipeline:
             report.add(
                 "dataset_split",
                 "feature_columns",
-                list(X.columns),
+                list(X_train.columns),
             )
 
             report.add(

@@ -34,7 +34,16 @@ class PreprocessingSummary:
     def to_dict(self):
 
         return self._report
- 
+
+    def has_errors(self):
+        """Check if any preprocessing stage encountered errors."""
+        errors = self._report.get("pipeline_errors")
+        return bool(errors and len(errors) > 0)
+
+    def get_errors(self):
+        """Get dictionary of pipeline stage errors, if any."""
+        return dict(self._report.get("pipeline_errors", {}))
+
 
     def save_json(self, output_path):
 

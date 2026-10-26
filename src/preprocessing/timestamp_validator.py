@@ -37,8 +37,25 @@ class TimestampValidator:
             return cleaned
 
         time_values = pd.to_datetime(cleaned[time_dim].values)
+        before_count = len(time_values)
 
-        before_count = len(time_values) 
+        if before_count == 0:
+            report.add(
+                "timestamps",
+                "analysis",
+                {
+                    "found": True,
+                    "time_dimension": time_dim,
+                    "timestamps_before": 0,
+                    "timestamps_after": 0,
+                    "duplicates_removed": 0,
+                    "sorted": True,
+                    "frequency": "Unknown",
+                    "start": "",
+                    "end": "",
+                },
+            )
+            return cleaned
 
         sorted_flag = bool(np.all(time_values[:-1] <= time_values[1:]))
 
@@ -67,6 +84,15 @@ class TimestampValidator:
 
         frequency = self._infer_frequency(time_values)
 
+        # Preserve metadata
+        cleaned.attrs = dict(dataset.attrs)
+        for var_name in cleaned.data_vars:
+            if var_name in dataset.data_vars:
+                cleaned[var_name].attrs = dict(dataset[var_name].attrs)
+        for coord_name in cleaned.coords:
+            if coord_name in dataset.coords:
+                cleaned[coord_name].attrs = dict(dataset[coord_name].attrs)
+
         report.add(
             "timestamps",
             "analysis",
@@ -78,8 +104,8 @@ class TimestampValidator:
                 "duplicates_removed": duplicate_count,
                 "sorted": sorted_flag,
                 "frequency": frequency,
-                "start": str(time_values[0]),
-                "end": str(time_values[-1]),
+                "start": str(time_values[0]) if len(time_values) else "",
+                "end": str(time_values[-1]) if len(time_values) else "",
             },
         )
 

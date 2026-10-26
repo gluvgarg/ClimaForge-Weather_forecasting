@@ -1,3 +1,5 @@
+import numpy as np
+import pandas as pd
 import xarray as xr
 
 
@@ -8,8 +10,7 @@ class DuplicateHandler:
     Duplicate observations are identified using the spatial-temporal
     coordinates (time, latitude, longitude).
 
-    The dataset is temporarily converted to a DataFrame for duplicate
-    detection and then converted back to an xarray.Dataset.
+    Attributes, variable units, and coordinate metadata are preserved.
     """
 
     TIME_COLUMNS = {
@@ -31,62 +32,51 @@ class DuplicateHandler:
         "LONGITUDE",
     }
 
-    # -----------------------------------------------------
-
     def process(self, dataset: xr.Dataset, report):
+        cleaned = dataset.copy(deep=True)
 
-        dataframe = dataset.to_dataframe().reset_index()
+        coordinate_dims = []
+        for dim in cleaned.dims:
+            dim_lower = dim.lower()
+            if (
+                dim_lower in self.TIME_COLUMNS
+                or dim_lower in self.LAT_COLUMNS
+                or dim_lower in self.LON_COLUMNS
+            ):
+                coordinate_dims.append(dim)
 
-        rows_before = len(dataframe)
+        rows_before = int(np.prod(list(cleaned.sizes.values()))) if cleaned.sizes else 0
+        duplicates_removed = 0
 
-        coordinate_columns = []
+        # Check each coordinate dimension for duplicates
+        has_coord_duplicates = False
+        for dim in coordinate_dims:
+            if dim in cleaned.coords:
+                idx = pd.Index(cleaned[dim].values)
+                duplicated_mask = idx.duplicated()
+                dup_count = int(duplicated_mask.sum())
+                if dup_count > 0:
+                    has_coord_duplicates = True
+                    cleaned = cleaned.isel({dim: ~duplicated_mask})
 
-        for column in dataframe.columns:
-
-            lower = column.lower()
-
-            if lower in {
-                "time",
-                "valid_time",
-                "forecast_time",
-            }:
-                coordinate_columns.append(column)
-
-            elif lower in {
-                "latitude",
-                "lat",
-            }:
-                coordinate_columns.append(column)
-
-            elif lower in {
-                "longitude",
-                "lon",
-            }:
-                coordinate_columns.append(column)
-
-        if len(coordinate_columns) >= 3:
-
-            dataframe = dataframe.drop_duplicates(
-                subset=coordinate_columns,
-                keep="first",
-            )
-
-        rows_after = len(dataframe)
-
-        duplicates_removed = rows_before - rows_after
+        if has_coord_duplicates:
+            rows_after = int(np.prod(list(cleaned.sizes.values()))) if cleaned.sizes else 0
+            duplicates_removed = max(0, rows_before - rows_after)
+        else:
+            rows_after = rows_before
 
         percentage = 0.0
-
         if rows_before > 0:
-            percentage = (
-                duplicates_removed / rows_before
-            ) * 100
+            percentage = (duplicates_removed / rows_before) * 100
 
-        cleaned_dataset = (
-            dataframe
-            .set_index(coordinate_columns)
-            .to_xarray()
-        )
+        # Preserve all attributes and units
+        cleaned.attrs = dict(dataset.attrs)
+        for var_name in cleaned.data_vars:
+            if var_name in dataset.data_vars:
+                cleaned[var_name].attrs = dict(dataset[var_name].attrs)
+        for coord_name in cleaned.coords:
+            if coord_name in dataset.coords:
+                cleaned[coord_name].attrs = dict(dataset[coord_name].attrs)
 
         report.add(
             "duplicates",
@@ -95,12 +85,9 @@ class DuplicateHandler:
                 "rows_before": rows_before,
                 "rows_after": rows_after,
                 "duplicates_removed": duplicates_removed,
-                "duplicate_percentage": round(
-                    percentage,
-                    4,
-                ),
-                "coordinate_columns": coordinate_columns,
+                "duplicate_percentage": round(percentage, 4),
+                "coordinate_columns": coordinate_dims,
             },
         )
 
-        return cleaned_dataset
+        return cleaned

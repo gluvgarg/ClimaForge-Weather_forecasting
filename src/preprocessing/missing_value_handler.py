@@ -69,14 +69,8 @@ class MissingValueHandler:
 
             missing_after = int(variable.isnull().sum())
             cleaned[variable_name] = variable
- 
-            if repaired_values > 0:
-                method = "temporal interpolation"
-            elif permanent_mask > 0:
-                method = "preserved permanent spatial mask"
-            elif missing_before > 0:
-                method = "mean"
- 
+            cleaned[variable_name].attrs = dict(dataset[variable_name].attrs)
+
             if variable.size > 0:
                 missing_percentage = round(
                     (missing_before / variable.size) * 100,
@@ -94,7 +88,9 @@ class MissingValueHandler:
                 "missing_percentage": missing_percentage,
                 "method": method,
             }
- 
+
+        cleaned.attrs = dict(dataset.attrs)
+
         report.add(
             "missing_values",
             "analysis",
@@ -129,11 +125,33 @@ class MissingValueHandler:
             * variable.sizes[time_dim]
         )
 
-        # Interpolate temporal gaps
-        interpolated = variable.interpolate_na(
-            dim=time_dim,
-            method="linear",
-        )
+        if variable.sizes[time_dim] < 2:
+            return variable, 0, permanent_values
+
+        var_to_interp = variable
+        if time_dim in var_to_interp.coords:
+            coord_vals = var_to_interp[time_dim].values
+            import pandas as pd
+            idx = pd.Index(coord_vals)
+            if idx.duplicated().any():
+                var_to_interp = var_to_interp.isel({time_dim: ~idx.duplicated()})
+            if len(var_to_interp[time_dim]) > 1:
+                vals = var_to_interp[time_dim].values
+                try:
+                    if not np.all(vals[:-1] <= vals[1:]):
+                        var_to_interp = var_to_interp.sortby(time_dim)
+                except Exception:
+                    pass
+
+        try:
+            # Interpolate temporal gaps
+            interpolated = var_to_interp.interpolate_na(
+                dim=time_dim,
+                method="linear",
+            )
+        except Exception:
+            # Fallback to ffill and bfill along time dimension if linear interp fails
+            interpolated = var_to_interp.ffill(dim=time_dim).bfill(dim=time_dim)
 
         # Restore permanently masked locations
         interpolated = interpolated.where(
@@ -141,10 +159,13 @@ class MissingValueHandler:
             np.nan,
         )
 
-        repaired_values = (
+        repaired_values = max(
+            0,
             int(variable.isnull().sum())
             - int(interpolated.isnull().sum())
         )
+
+        interpolated.attrs = dict(variable.attrs)
 
         return (
             interpolated,

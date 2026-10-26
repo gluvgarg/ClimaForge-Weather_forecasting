@@ -25,6 +25,7 @@ from PyQt5.QtWidgets import (
     QWidget,
 )
 
+from src.visualization.widgets.analysis_panel import DataAnalysisPanel
 from src.visualization.widgets.dashboard_visuals import C, STYLE, Sidebar, apply_palette, font
 from src.visualization.widgets.data_grid import DataSliceGrid
 from src.visualization.widgets.dataset_summary import DatasetSummaryPanel
@@ -101,6 +102,7 @@ class MainWindow(QMainWindow):
     export_telemetry_requested = pyqtSignal()
     export_dataset_requested = pyqtSignal()
     generate_report_requested = pyqtSignal()
+    engineer_features_requested = pyqtSignal()
     run_forecast_requested = pyqtSignal(dict)
     compare_models_requested = pyqtSignal(dict)
     variable_selected = pyqtSignal(str)
@@ -136,6 +138,7 @@ class MainWindow(QMainWindow):
         self.forecast_panel = ForecastPanel()
         self.comparison_panel = ModelComparisonPanel()
         self.satellite_panel = SatelliteLayerPanel()
+        self.analysis_panel = DataAnalysisPanel()
 
         self.variable_combo = QComboBox()
         self.variable_combo.setMinimumWidth(240)
@@ -202,6 +205,7 @@ class MainWindow(QMainWindow):
             self.close_action,
             self.open_button,
             self.close_button,
+            self.engineer_button,
             self.run_button,
             self.compare_button,
         ]
@@ -306,18 +310,7 @@ class MainWindow(QMainWindow):
         return page
 
     def _analysis_page(self):
-        page = QWidget()
-        layout = QVBoxLayout(page)
-        layout.setContentsMargins(10, 8, 10, 8)
-        layout.setSpacing(8)
-        label = QLabel("Time-Series Analysis")
-        label.setFont(font(15, True))
-        details = QLabel("Use the right-side Multi-Variate Comparison panel for the current variable series.")
-        details.setStyleSheet(f"color:{C['dim']};font-size:12px;")
-        layout.addWidget(label)
-        layout.addWidget(details)
-        layout.addStretch()
-        return page
+        return self.analysis_panel
 
     def _forecast_page(self):
         page = QWidget()
@@ -391,6 +384,15 @@ class MainWindow(QMainWindow):
         layout.setContentsMargins(10, 8, 10, 8)
         layout.setSpacing(8)
 
+        self.engineer_button = QPushButton("Engineer Features")
+        self.engineer_button.setMinimumWidth(130)
+        self.engineer_button.clicked.connect(self.engineer_features_requested.emit)
+        self.engineer_button.setStyleSheet(
+            f"QPushButton{{color:#ffffff;background:{C['card']};border:1px solid {C['soft_border']};"
+            "border-radius:5px;padding:6px 12px;font-weight:600;}}"
+            f"QPushButton:hover{{border-color:{C['cyan']};}}"
+        )
+
         self.run_button = QPushButton("Run Forecast")
         self.run_button.setMinimumWidth(120)
         self.run_button.clicked.connect(self._emit_forecast_request)
@@ -420,6 +422,7 @@ class MainWindow(QMainWindow):
         layout.addWidget(QLabel("Future Steps"))
         layout.addWidget(self.forecast_steps_spin)
         layout.addStretch()
+        layout.addWidget(self.engineer_button)
         layout.addWidget(self.run_button)
         layout.addWidget(self.compare_button)
         return frame
@@ -594,9 +597,13 @@ class MainWindow(QMainWindow):
         self.comparison_panel.set_comparison(comparison_report)
         self.show_module("forecast")
 
+    def set_analysis_reports(self, analysis_report, preprocessing_report, dataset_info):
+        self.analysis_panel.set_reports(analysis_report, preprocessing_report, dataset_info)
+
     def reset_dataset_view(self):
         self.metadata_viewer.clear()
         self.dataset_summary.clear()
+        self.analysis_panel.clear()
         self.satellite_panel.clear()
         self.plot_panel.clear()
         self.forecast_panel.clear()
